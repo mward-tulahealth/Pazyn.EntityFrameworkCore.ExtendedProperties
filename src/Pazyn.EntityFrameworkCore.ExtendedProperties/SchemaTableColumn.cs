@@ -1,14 +1,12 @@
-﻿using System;
-
-namespace Pazyn.EntityFrameworkCore.ExtendedProperties
+﻿namespace Pazyn.EntityFrameworkCore.ExtendedProperties
 {
-    internal class SchemaTableColumn
+    public class SchemaTableColumn
     {
-        public String Schema { get; }
-        public String Table { get; }
-        public String Column { get; }
+        public string Schema { get; }
+        public string Table { get; }
+        public string Column { get; }
 
-        public SchemaTableColumn(String schema, String table, String column)
+        public SchemaTableColumn(string schema, string table, string column)
         {
             Schema = schema;
             Table = table;

@@ -2,7 +2,7 @@
 
 namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Operations
 {
-    internal class RemoveExtendedPropertyOperation : MigrationOperation
+    public class RemoveExtendedPropertyOperation : MigrationOperation
     {
         public SchemaTableColumn SchemaTableColumn { get; }
         public ExtendedProperty ExtendedProperty { get; }

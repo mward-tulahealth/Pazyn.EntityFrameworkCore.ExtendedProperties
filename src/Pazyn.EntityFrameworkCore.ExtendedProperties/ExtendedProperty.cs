@@ -1,13 +1,11 @@
-﻿using System;
-
-namespace Pazyn.EntityFrameworkCore.ExtendedProperties
+﻿namespace Pazyn.EntityFrameworkCore.ExtendedProperties
 {
-    internal class ExtendedProperty
+    public class ExtendedProperty
     {
-        public String Key { get; }
-        public String Value { get; }
+        public string Key { get; }
+        public string Value { get; }
 
-        public ExtendedProperty(String key, String value)
+        public ExtendedProperty(string key, string value)
         {
             Key = key;
             Value = value;
