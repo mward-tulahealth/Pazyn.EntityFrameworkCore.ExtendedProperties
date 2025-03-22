@@ -255,6 +255,17 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties
         private void GenerateAddExtendedPropertySql(AddExtendedPropertyOperation operation, MigrationCommandListBuilder builder, Boolean terminate = true) {
             Utilities.Log($"G.{nameof(GenerateAddExtendedPropertySql)} - AddExtendedPropertyOperation");
 
+            builder.AppendLine("IF NOT EXISTS (SELECT 1 FROM sys.extended_properties");
+            builder.AppendLine($"WHERE name = N'{operation.ExtendedProperty.Key}'");
+            builder.AppendLine($"AND major_id = OBJECT_ID(N'{operation.SchemaTableColumn.Schema ?? "dbo"}.{operation.SchemaTableColumn.Table}')");
+            if (!string.IsNullOrEmpty(operation.SchemaTableColumn.Column)) {
+                builder.AppendLine($"AND minor_id = (SELECT column_id FROM sys.columns WHERE name = N'{operation.SchemaTableColumn.Column}' AND object_id = OBJECT_ID(N'{operation.SchemaTableColumn.Schema ?? "dbo"}.{operation.SchemaTableColumn.Table}'))");
+            } else {
+                builder.AppendLine("AND minor_id = 0");
+            }
+            builder.AppendLine(")");
+
+            builder.AppendLine("BEGIN");
             builder.Append("EXEC sys.sp_addextendedproperty");
             builder.Append($" @name = N'{operation.ExtendedProperty.Key}',");
             builder.AppendLine($" @value = N'{operation.ExtendedProperty.Value}',");
@@ -269,6 +280,7 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties
             }
 
             builder.AppendLine(";");
+            builder.AppendLine("END");
 
             builder.EndCommand();
         }
@@ -276,6 +288,17 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties
         private void GenerateRemoveExtendedPropertySql(RemoveExtendedPropertyOperation operation, MigrationCommandListBuilder builder, Boolean terminate = true) {
             Utilities.Log($"G.{nameof(GenerateRemoveExtendedPropertySql)} - RemoveExtendedPropertyOperation");
 
+            builder.AppendLine("IF EXISTS (SELECT 1 FROM sys.extended_properties");
+            builder.AppendLine($"WHERE name = N'{operation.ExtendedProperty.Key}'");
+            builder.AppendLine($"AND major_id = OBJECT_ID(N'{operation.SchemaTableColumn.Schema ?? "dbo"}.{operation.SchemaTableColumn.Table}')");
+            if (!string.IsNullOrEmpty(operation.SchemaTableColumn.Column)) {
+                builder.AppendLine($"AND minor_id = (SELECT column_id FROM sys.columns WHERE name = N'{operation.SchemaTableColumn.Column}' AND object_id = OBJECT_ID(N'{operation.SchemaTableColumn.Schema ?? "dbo"}.{operation.SchemaTableColumn.Table}'))");
+            } else {
+                builder.AppendLine("AND minor_id = 0");
+            }
+            builder.AppendLine(")");
+
+            builder.AppendLine("BEGIN");
             builder.Append("EXEC sys.sp_dropextendedproperty");
             builder.AppendLine($" @name = N'{operation.ExtendedProperty.Key}',");
             builder.Append("@level0type = N'SCHEMA',");
@@ -289,6 +312,7 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties
             }
 
             builder.AppendLine(";");
+            builder.AppendLine("END");
 
             builder.EndCommand();
         }

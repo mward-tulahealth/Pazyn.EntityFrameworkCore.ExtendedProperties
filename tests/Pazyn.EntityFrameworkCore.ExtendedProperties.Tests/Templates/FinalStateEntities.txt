@@ -1,0 +1,48 @@
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+
+namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Entities {
+    [Table("ExistingTable")]
+    [Comment("Existing table for integration tests")]
+    public class ExistingTable {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Comment("Auto incrementing id that is for internal use only")]
+        public int Id { get; set; }
+
+        [Comment("Public unique identifier of this point transaction")]
+        public Guid ExternalId { get; set; }
+
+        // Field to test adding an attribute after initial migration
+        public string AddAttributeToExistingField { get; set; }
+
+        // Field to test removing an attribute after initial migration
+        public bool RemoveAttributeFromExistingField { get; set; }
+
+        // Field to test removing the field and attribute after initial migration
+//        [PHI]
+//        public string RemoveFieldAndAttributeFromExistingField { get; set; }
+
+        // Field to test renaming with an attribute after initial migration
+        [PHI]
+        public long ExistingField_RenameExistingField_NewName { get; set; }
+    }
+
+    [Table("TableToBeAdded")]
+    [Comment("Table to be added for integration tests")]
+    public class TableToBeAdded {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Comment("Auto incrementing id that is for internal use only")]
+        public int Id { get; set; }
+
+        [Comment("Public unique identifier of this point transaction")]
+        public Guid ExternalId { get; private set; }
+
+        // Field to test that attribute is added after creating new table
+        [PHI]
+        public string FieldToBeAdded { get; set; }
+    }
+}

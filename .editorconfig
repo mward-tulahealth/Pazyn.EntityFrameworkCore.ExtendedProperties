@@ -1,0 +1,44 @@
+# top-most EditorConfig file
+root = true
+
+# All files
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# C# files
+[*.cs]
+# Use 4 spaces for indentation
+indent_style = space
+indent_size = 4
+
+# Place open braces on a new line for methods, types, and namespaces
+csharp_new_line_before_open_brace = methods, types, namespaces
+
+# Place open braces on the same line for everything else
+csharp_new_line_before_open_brace = accessors, anonymous_methods, anonymous_types, control_blocks, event_accessors, indexers, lambdas, local_functions, object_collection_array_initializers, properties
+
+# Require 'this.' prefix for instance members
+dotnet_style_qualification_for_field = true:suggestion
+dotnet_style_qualification_for_property = true:suggestion
+dotnet_style_qualification_for_method = true:suggestion
+dotnet_style_qualification_for_event = true:suggestion
+
+# Use 'var' instead of explicit type when the type is apparent
+csharp_style_var_when_type_is_apparent = true:suggestion
+
+# Use explicit type instead of 'var' when the type is not apparent
+csharp_style_var_elsewhere = false:suggestion
+
+# Prefer expression-bodied members
+csharp_style_expression_bodied_methods = true:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_expression_bodied_indexers = true:suggestion
+csharp_style_expression_bodied_accessors = true:suggestion
+
+# Prefer 'is null' check over '== null'
+csharp_style_prefer_is_null_check_over_equality_operator = true:suggestion
