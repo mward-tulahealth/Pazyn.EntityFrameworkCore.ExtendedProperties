@@ -1,12 +1,21 @@
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
     public class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<TestDbContext> {
         public TestDbContext CreateDbContext(string[] args) {
-            string connectionString = "Server=localhost;Database=TestDatabase;User ID=sa;Password=tKtFqRz9B^BgQdqp&4YF;Trusted_Connection=True;";
+            IConfiguration configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("testsettings.json")
+                .AddJsonFile("testsettings.local.json", optional: true)
+                .Build();
+
+            string connectionString = configuration
+                .GetSection("Database:ConnectionString").Value;
 
             var builder = new DbContextOptionsBuilder<TestDbContext>();
             builder.UseSqlServer(connectionString, options => options.MigrationsAssembly(typeof(TestDbContext).Assembly.FullName));

@@ -2,10 +2,14 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
+using Pazyn.EntityFrameworkCore.ExtendedProperties.Entities;
 
 namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Entities {
     [Table("ExistingTable")]
     [Comment("Existing table for integration tests")]
+    // FinalStateEntities
+
+    // Do not modify this file in `OverwritableEntities.cs` file, only in `FinalStateEntities.txt` template file.
     public class ExistingTable {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -16,17 +20,28 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Entities {
         public Guid ExternalId { get; set; }
 
         // Field to test adding an attribute after initial migration
+        [PII]
         public string AddAttributeToExistingField { get; set; }
 
-        // Field to test removing an attribute after initial migration
-        public bool RemoveAttributeFromExistingField { get; set; }
+        // Field to test adding all attributes after initial migration
+        [PHI]
+        [PII]
+        [ExtendedProperty("CustomEP", "CustomValue")]
+        public bool AddAllAttributesToExistingField { get; set; }
 
-        // Field to test removing the field and attribute after initial migration
-//        [PHI]
-//        public string RemoveFieldAndAttributeFromExistingField { get; set; }
+        // Field to test removing an attribute after initial migration
+        public Guid RemovePiiAttributeFromExistingField { get; set; }
+
+        // Field to test removing attributes after initial migration
+        public bool RemoveAllAttributesFromExistingField { get; set; }
+
+    //     // Field to test removing the field and attribute after initial migration
+    //    [PHI]
+    //    public int RemoveFieldAndAttributeFromExistingField { get; set; }
 
         // Field to test renaming with an attribute after initial migration
         [PHI]
+        [PII]
         public long ExistingField_RenameExistingField_NewName { get; set; }
     }
 
@@ -43,6 +58,16 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Entities {
 
         // Field to test that attribute is added after creating new table
         [PHI]
-        public string FieldToBeAdded { get; set; }
+        public string PhiFieldToBeAdded { get; set; }
+
+        // Field to test that attribute is added after creating new table
+        [PII]
+        public bool PiiFieldToBeAdded { get; set; }
+
+        // Field to test that all attributes are added after creating new table
+        [PHI]
+        [PII]
+        [ExtendedProperty("CustomEP", "CustomValue")]
+        public long AllAttributesToBeAdded { get; set; }
     }
 }

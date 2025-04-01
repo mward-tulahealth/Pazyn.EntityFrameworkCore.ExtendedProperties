@@ -7,10 +7,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{C193105F-D87
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pazyn.EntityFrameworkCore.ExtendedProperties", "src\Pazyn.EntityFrameworkCore.ExtendedProperties\Pazyn.EntityFrameworkCore.ExtendedProperties.csproj", "{C5701D60-BACA-4D6B-9F21-E7D8E7E7AB87}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{BD54D5A9-BCC4-4C08-B8A6-DC5BDCB79F2C}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pazyn.EntityFrameworkCore.ExtendedProperties.Example", "examples\Pazyn.EntityFrameworkCore.ExtendedProperties.Example\Pazyn.EntityFrameworkCore.ExtendedProperties.Example.csproj", "{EAA28D36-7A4C-4B41-9065-6567EA8BA14A}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pazyn.EntityFrameworkCore.ExtendedProperties.Tests", "tests\Pazyn.EntityFrameworkCore.ExtendedProperties.Tests\Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.csproj", "{F1A1E1B2-3D4E-4A5B-8A1E-2A1E1A1E1A1E}"
 EndProject
 Global

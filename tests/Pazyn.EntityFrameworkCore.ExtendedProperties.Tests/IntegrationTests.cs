@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Entities;
 using System;
 using System.Diagnostics;
@@ -8,7 +9,6 @@ using Xunit;
 
 namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
     public class IntegrationTests : IAsyncLifetime {
-        private readonly string _connectionString = "Server=localhost;Database=TestDatabase;User ID=sa;Password=tKtFqRz9B^BgQdqp&4YF;Trusted_Connection=True;";
         private readonly string _projectPath = "../../../";
         private readonly string _entitiesPath = "../../../Entities/";
         private readonly string _templatesPath = "../../../Templates/";
@@ -16,8 +16,10 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
         private string snapshotOfSnapshot;
 
         public async Task InitializeAsync() {
+            string connectionString = GetConnectionString();
+
             var options = new DbContextOptionsBuilder<TestDbContext>()
-                .UseSqlServer(_connectionString)
+                .UseSqlServer(connectionString)
                 .Options;
 
             _context = new TestDbContext(options);
@@ -48,15 +50,48 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
 
             // Act
             await RunMigrationsAddAndApplyPowershellCommand("UpdatedModelsMigration");
-            
-            var extendedProperties = Utilities.GetAllExtendedPropertiesFromDatabase(_context);
 
             // Assert
+            AssertExtendedPropertiesMatchFinalState();
+        }
+
+        private string GetConnectionString() {
+            IConfiguration configuration = new ConfigurationBuilder()
+                .SetBasePath(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../")))
+                .AddJsonFile("testsettings.json")
+                .AddJsonFile("testsettings.local.json", optional: true)
+                .Build();
+
+            string connectionString = configuration
+                .GetSection("Database:ConnectionString").Value;
+            return connectionString;
+        }
+
+        private void AssertExtendedPropertiesMatchFinalState() {
+            var extendedProperties = Utilities.GetAllExtendedPropertiesFromDatabase(_context);
+
             Assert.True(_context.Database.CanConnect());
             Assert.NotNull(extendedProperties);
-            Assert.Equal(2, extendedProperties.Count);
-            Assert.Contains(extendedProperties, x => x.TableName == "TableToBeAdded" && x.ColumnName == "FieldToBeAdded" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+            // ExistingTable
+            Assert.Contains(extendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "AddAttributeToExistingField" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+
+            Assert.Contains(extendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "AddAllAttributesToExistingField" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(extendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "AddAllAttributesToExistingField" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(extendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "AddAllAttributesToExistingField" && x.ExtendedPropertyName == "CustomEP" && x.ExtendedPropertyValue == "CustomValue");
+
             Assert.Contains(extendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "ExistingField_RenameExistingField_NewName" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(extendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "ExistingField_RenameExistingField_NewName" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+
+            // TableToBeAdded
+            Assert.Contains(extendedProperties, x => x.TableName == "TableToBeAdded" && x.ColumnName == "PhiFieldToBeAdded" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+
+            Assert.Contains(extendedProperties, x => x.TableName == "TableToBeAdded" && x.ColumnName == "PiiFieldToBeAdded" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+
+            Assert.Contains(extendedProperties, x => x.TableName == "TableToBeAdded" && x.ColumnName == "AllAttributesToBeAdded" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(extendedProperties, x => x.TableName == "TableToBeAdded" && x.ColumnName == "AllAttributesToBeAdded" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(extendedProperties, x => x.TableName == "TableToBeAdded" && x.ColumnName == "AllAttributesToBeAdded" && x.ExtendedPropertyName == "CustomEP" && x.ExtendedPropertyValue == "CustomValue");
+
+            Assert.Equal(11, extendedProperties.Count);
         }
 
         private void ResetUpdateMigrationFilesAndRevertSnapshot() {
@@ -98,8 +133,10 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
             {
                 ExternalId = Guid.NewGuid(),
                 AddAttributeToExistingField = "Test",
-                RemoveAttributeFromExistingField = true
-                // There are two other fields that can't be set because they change and would break the build if included here
+                AddAllAttributesToExistingField = true,
+                RemovePiiAttributeFromExistingField = Guid.NewGuid(),
+                RemoveAllAttributesFromExistingField = true
+                // There are two other fields that can't be set because they are updated during the test and would break the build if included here
             };
             _context.ExistingTable.Add(newEntity);
             await _context.SaveChangesAsync();
@@ -107,7 +144,7 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
         }
 
         private static async Task RunMigrationsAddAndApplyPowershellCommand(string migrationName) {
-            var projectDir = @"c:\Users\Owner\source\repos\Pazyn.EntityFrameworkCore.ExtendedProperties\tests\Pazyn.EntityFrameworkCore.ExtendedProperties.Tests";
+            var projectDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../"));
 
             var addMigrationProcessStartInfo = new ProcessStartInfo {
                 FileName = "dotnet",
@@ -120,7 +157,7 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
             };
 
             using (var addMigrationProcess = Process.Start(addMigrationProcessStartInfo)) {
-                addMigrationProcess.WaitForExit();
+                addMigrationProcess.WaitForExit(30000); // Wait for 30 seconds
                 var addMigrationOutput = await addMigrationProcess.StandardOutput.ReadToEndAsync();
                 var addMigrationError = await addMigrationProcess.StandardError.ReadToEndAsync();
 
@@ -140,7 +177,7 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
             };
 
             using (var updateDatabaseProcess = Process.Start(updateDatabaseProcessStartInfo)) {
-                updateDatabaseProcess.WaitForExit();
+                updateDatabaseProcess.WaitForExit(30000); // Wait for 30 seconds
                 var updateDatabaseOutput = await updateDatabaseProcess.StandardOutput.ReadToEndAsync();
                 var updateDatabaseError = await updateDatabaseProcess.StandardError.ReadToEndAsync();
 
@@ -153,11 +190,29 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
         private void AssertInitialMigrationSetupEPsCorrectly() {
             var initialExtendedProperties = Utilities.GetAllExtendedPropertiesFromDatabase(_context);
             Assert.NotNull(initialExtendedProperties);
-            Assert.Equal(4, initialExtendedProperties.Count);
-            Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "RemoveAttributeFromExistingField" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+
+            // Initial ExistingTable EPs
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "RemovePiiAttributeFromExistingField" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "RemoveAllAttributesFromExistingField" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "RemoveAllAttributesFromExistingField" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "RemoveAllAttributesFromExistingField" && x.ExtendedPropertyName == "CustomEP" && x.ExtendedPropertyValue == "CustomValue");
+
             Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "RemoveFieldAndAttributeFromExistingField" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+
             Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "ExistingField_RenameExistingField" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
-            Assert.Contains(initialExtendedProperties, x => x.TableName == "TableToBeRemoved" && x.ColumnName == "FieldToBeRemoved" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "ExistingTable" && x.ColumnName == "ExistingField_RenameExistingField" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+
+            // Initial TableToBeRemoved EPs
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "TableToBeRemoved" && x.ColumnName == "PhiFieldToBeRemoved" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "TableToBeRemoved" && x.ColumnName == "PiiFieldToBeRemoved" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "TableToBeRemoved" && x.ColumnName == "AllAttributesToBeRemoved" && x.ExtendedPropertyName == "PHI" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "TableToBeRemoved" && x.ColumnName == "AllAttributesToBeRemoved" && x.ExtendedPropertyName == "PII" && x.ExtendedPropertyValue == "true");
+            Assert.Contains(initialExtendedProperties, x => x.TableName == "TableToBeRemoved" && x.ColumnName == "AllAttributesToBeRemoved" && x.ExtendedPropertyName == "CustomEP" && x.ExtendedPropertyValue == "CustomValue");
+            
+            Assert.Equal(12, initialExtendedProperties.Count);
         }
     }
 }

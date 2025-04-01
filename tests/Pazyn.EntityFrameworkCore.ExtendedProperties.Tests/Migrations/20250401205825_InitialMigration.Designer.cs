@@ -12,7 +12,7 @@ using Pazyn.EntityFrameworkCore.ExtendedProperties.Tests;
 namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Migrations
 {
     [DbContext(typeof(TestDbContext))]
-    [Migration("20250321235811_InitialMigration")]
+    [Migration("20250401205825_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -34,6 +34,9 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AddAllAttributesToExistingField")
+                        .HasColumnType("bit");
+
                     b.Property<string>("AddAttributeToExistingField")
                         .HasColumnType("nvarchar(max)");
 
@@ -44,11 +47,14 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasComment("Public unique identifier of this point transaction");
 
-                    b.Property<bool>("RemoveAttributeFromExistingField")
+                    b.Property<bool>("RemoveAllAttributesFromExistingField")
                         .HasColumnType("bit");
 
                     b.Property<int>("RemoveFieldAndAttributeFromExistingField")
                         .HasColumnType("int");
+
+                    b.Property<Guid>("RemovePiiAttributeFromExistingField")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -67,12 +73,18 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("AllAttributesToBeRemoved")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("ExternalId")
                         .HasColumnType("uniqueidentifier")
                         .HasComment("Public unique identifier of this point transaction");
 
-                    b.Property<string>("FieldToBeRemoved")
+                    b.Property<string>("PhiFieldToBeRemoved")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PiiFieldToBeRemoved")
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 

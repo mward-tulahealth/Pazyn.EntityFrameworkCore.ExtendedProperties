@@ -6,15 +6,19 @@ using Microsoft.EntityFrameworkCore.Migrations.Internal;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update.Internal;
+using Microsoft.Extensions.Logging;
+using Pazyn.EntityFrameworkCore.ExtendedProperties.Entities;
 using Pazyn.EntityFrameworkCore.ExtendedProperties.Operations;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
 namespace Pazyn.EntityFrameworkCore.ExtendedProperties {
     public class CustomMigrationsModelDiffer : MigrationsModelDiffer {
         private DbContext _dbContext;
+        private static readonly ILogger Logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<CustomMigrationsModelDiffer>();
 
         public CustomMigrationsModelDiffer(
             IRelationalTypeMappingSource typeMappingSource,
@@ -31,32 +35,48 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties {
             IRelationalModel? source,
             IRelationalModel? target,
             DiffContext diffContext) {
-            //Debugger.Launch();
+            // Debugger.Launch();
 
-            if (_dbContext == null)
-            {
+            if (_dbContext == null) {
+                if (DbContextHolder.DbContext == null) {
+                    Logger.LogError("DbContextHolder.DbContext is null. Please set the DbContextHolder.DbContext before using CustomMigrationsModelDiffer.");
+                    throw new InvalidOperationException("DbContextHolder.DbContext is null. Please set the DbContextHolder.DbContext before using CustomMigrationsModelDiffer.");
+                }
                 _dbContext = DbContextHolder.DbContext;
             }
 
-            // Don't run for trigger generation script
-            if (source == null && _dbContext.GetType().Name == "DatabaseContext" || target == null)
-            {
+            if (source == null && _dbContext.GetType().Name == "DatabaseContext" || target == null) {
+                Logger.LogDebug("Skipping extended properties for trigger generation script");
                 return base.Diff(source, target, diffContext);
             }
 
             var operations = base.Diff(source, target, diffContext).ToList();
             var baseOperationsCount = operations.Count;
 
-            // Run a single query to get all PHI extended properties from the database
-            var existingExtendedPropertiesInDatabase = Utilities.GetAllExtendedPropertiesFromDatabase(_dbContext, "PHI");
-            Utilities.Log($"D.{nameof(Diff)} - Extended properties in database: {existingExtendedPropertiesInDatabase.Count}");
+            if (baseOperationsCount == 1 && operations[0].ToString().Contains("CreateTable")) {
+                Logger.LogDebug("Skipping extended properties for CreateTable operation");
+                return operations;
+            }
 
-            foreach (var table in target.Model?.GetEntityTypes())
-            {
+            // If we have already generated operations for Up and are now generating operations for Down,
+            // we will use a cached copy of the operations reversed for Down instead of trying to generate them
+            // since generating them will cause issues with the source/target swapped.
+            var operationsCount = UpOperationsHolder.AddExtendedPropertyOperations.Count + UpOperationsHolder.RemoveExtendedPropertyOperations.Count;
+            if (operationsCount > 0) {
+                Logger.LogInformation($"Using reversed cached operations from `Up` for `Down`: {operationsCount}");
+                operations.AddRange(UpOperationsHolder.GetDownOperations());
+                UpOperationsHolder.Clear();
+                return operations;
+            }
+
+            // Run a single query to get all custom extended properties from the database
+            var existingExtendedPropertiesInDatabase = Utilities.GetAllExtendedPropertiesFromDatabase(_dbContext);
+            Logger.LogInformation($"Existing extended properties in database: {existingExtendedPropertiesInDatabase.Count}");
+
+            foreach (var table in target.Model?.GetEntityTypes()) {
                 var assembly = LoadAssembly(table);
 
-                foreach (var targetProperty in table.GetProperties())
-                {
+                foreach (var targetProperty in table.GetProperties()) {
                     var sourceProperty = source?.Model?.FindEntityType(table.Name)?.FindProperty(targetProperty.Name);
                     sourceProperty ??= diffContext.FindSource(targetProperty); // This doesn't seem to ever find anything...
 
@@ -65,100 +85,81 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties {
                     var targetCustomAttributes = Utilities.GetPropertyCustomAttributesFromAssembly(table.Name, targetProperty.Name, assembly);
 
                     // If source already had EPs, compare them to the target's custom attributes
-                    if (sourceExtendedProperties.Any())
-                    {
+                    if (sourceExtendedProperties.Any()) {
                         ProcessExistingExtendedProperties(operations, table, targetProperty, sourceProperty, sourceExtendedProperties, targetCustomAttributes);
                     }
-                    else
-                    { // If source didn't have EPs, check if target has any custom attributes to add
+                    else { // If source didn't have EPs, check if target has any custom attributes to add
                         ProcessNewExtendedProperties(operations, table, targetProperty, targetCustomAttributes);
                     }
                 }
             }
 
             // Remove any extended properties that were never compared, like removed columns
-            foreach (var ep in existingExtendedPropertiesInDatabase.Where(ep => !ep.HasBeenCompared))
-            {
-                Utilities.Log($"D.{nameof(Diff)} - Creating RemoveExtendedPropertyOperation for {ep.TableName}.{ep.ColumnName} with annotation PHI Remove");
-                var removeExtendedPropertyOperation = new RemoveExtendedPropertyOperation(new SchemaTableColumn("dbo", ep.TableName, ep.ColumnName), new ExtendedProperty(ep.ExtendedPropertyName, ep.ExtendedPropertyValue));
-                removeExtendedPropertyOperation.AddAnnotation(ep.ExtendedPropertyName, "Remove");
+            foreach (var ep in existingExtendedPropertiesInDatabase.Where(ep => !ep.HasBeenCompared)) {
+                Logger.LogInformation($"Creating RemoveExtendedPropertyOperation for {ep.TableName}.{ep.ColumnName} for EP key '{ep.ExtendedPropertyName}'");
+                var removeExtendedPropertyOperation = new RemoveExtendedPropertyOperation(new SchemaTableColumn("dbo", ep.TableName, ep.ColumnName), ep.ExtendedPropertyName);
                 operations.Add(removeExtendedPropertyOperation);
             }
 
-            Utilities.Log($"D.{nameof(Diff)} - New operations: {operations.Count - baseOperationsCount}/{operations.Count}");
+            // Cache Up operations to reverse for Down
+            UpOperationsHolder.AddExtendedPropertyOperations.AddRange(operations.OfType<AddExtendedPropertyOperation>());
+            UpOperationsHolder.RemoveExtendedPropertyOperations.AddRange(operations.OfType<RemoveExtendedPropertyOperation>());
+
+            Logger.LogDebug($"New operations: {operations.Count - baseOperationsCount}/{operations.Count}");
             return operations;
         }
 
         private Assembly LoadAssembly(IEntityType table) {
             var tableNameParts = table.Name.Split('.');
-            for (int i = tableNameParts.Length; i > 0; i--)
-            {
+            
+            // Try to load the assembly using the full name first, 
+            // removing another split from the end each time until we find a matching assembly
+            for (int i = tableNameParts.Length; i > 0; i--) {
                 var assemblyName = string.Join('.', tableNameParts.Take(i));
-                try
-                {
+                try {
                     return Assembly.Load(assemblyName);
                 }
-                catch
-                {
+                catch {
                     // Ignore and try the next combination
                 }
             }
             throw new InvalidOperationException($"Unable to load assembly for table {table.Name}");
         }
 
-        private void ProcessNewExtendedProperties(List<MigrationOperation> operations, IEntityType entityType, IProperty targetProperty, IEnumerable<string> targetCustomAttributes) {
-            foreach (var dictionaryKey in Config.AttributeToExtendedPropertyMap.Keys)
-            {
-                var dictionaryExtendedProperty = Config.AttributeToExtendedPropertyMap[dictionaryKey];
-                if (targetCustomAttributes.Contains(dictionaryKey))
-                {
-                    Utilities.Log($"D.{nameof(ProcessNewExtendedProperties)} - Creating AddExtendedPropertyOperation for {entityType.GetTableName()}.{targetProperty.Name} with annotation PHI Add");
-                    var addExtendedPropertyOperation = new AddExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), targetProperty.Name), Config.AttributeToExtendedPropertyMap[dictionaryKey]);
-                    addExtendedPropertyOperation.AddAnnotation(dictionaryExtendedProperty.Key, "Add");
-                    operations.Add(addExtendedPropertyOperation);
-                    return;
-                }
+        private void ProcessNewExtendedProperties(List<MigrationOperation> operations, IEntityType entityType, 
+        IProperty targetProperty, IEnumerable<ExtendedPropertyAttribute> targetCustomAttributes) {
+            foreach (var targetCustomAttribute in targetCustomAttributes) {
+                Logger.LogInformation($"Creating AddExtendedPropertyOperation for {entityType.GetTableName()}.{targetProperty.Name} for EP key '{targetCustomAttribute.Name}'");
+                var addEpOperation = new AddExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), targetProperty.Name), new ExtendedProperty(targetCustomAttribute.Name, targetCustomAttribute.Value));
+                operations.Add(addEpOperation);
             }
         }
 
-        private static void ProcessExistingExtendedProperties(List<MigrationOperation> operations, IEntityType entityType, IProperty targetProperty, IProperty sourceProperty, IEnumerable<ExtendedPropertyResult> sourceExtendedProperties, IEnumerable<string> targetCustomAttributes) {
-            foreach (var dictionaryKey in Config.AttributeToExtendedPropertyMap.Keys)
-            {
-                var dictionaryExtendedProperty = Config.AttributeToExtendedPropertyMap[dictionaryKey];
-                var found = sourceExtendedProperties.FirstOrDefault(ep => ep.ExtendedPropertyName == dictionaryExtendedProperty.Key && ep.ExtendedPropertyValue == dictionaryExtendedProperty.Value);
-                if (found != null && !found.HasBeenCompared)
-                {
+        private static void ProcessExistingExtendedProperties(List<MigrationOperation> operations, IEntityType entityType, IProperty targetProperty, IProperty sourceProperty, IEnumerable<ExtendedPropertyResult> sourceExtendedProperties, IEnumerable<ExtendedPropertyAttribute> targetCustomAttributes) {
+            foreach (var targetCustomAttribute in targetCustomAttributes) {
+                var matchingEP = sourceExtendedProperties.FirstOrDefault(ep => ep.ExtendedPropertyName == targetCustomAttribute.Name && ep.ExtendedPropertyValue == targetCustomAttribute.Value);
+                if (matchingEP != null && !matchingEP.HasBeenCompared) {
                     // Mark as compared to avoid duplicate operations and so we can see any that were never compared at the end
-                    found.HasBeenCompared = true;
+                    matchingEP.HasBeenCompared = true;
+                    // If the source and target have the same EP, but property was renamed, 
+                    // we'll have to remove the old EP and add a new one with the new name
+                    if (sourceProperty.Name != targetProperty.Name) {
+                        // Remove old EP
+                        Logger.LogInformation($"Creating RemoveExtendedPropertyOperation for {entityType.GetTableName()}.{targetProperty.Name} for EP key '{targetCustomAttribute.Name}'");
+                        var removeEpOperation = new RemoveExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), targetProperty.Name), targetCustomAttribute.Name);
+                        operations.Add(removeEpOperation);
 
-                    if (targetCustomAttributes.Contains(dictionaryKey))
-                    {
-                        // If the source and target have the same EP, but property was renamed, 
-                        // we'll have to remove the old EP and add a new one with the new name
-                        if (sourceProperty.Name != targetProperty.Name)
-                        {
-                            // Remove old EP
-                            Utilities.Log($"D.{nameof(ProcessExistingExtendedProperties)} - Creating RemoveExtendedPropertyOperation for {entityType.GetTableName()}.{targetProperty.Name} with annotation PHI Rename");
-                            var removeExtendedPropertyOperation = new RemoveExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), targetProperty.Name), dictionaryExtendedProperty);
-                            removeExtendedPropertyOperation.AddAnnotation(dictionaryExtendedProperty.Key, "Remove");
-                            operations.Add(removeExtendedPropertyOperation);
-
-                            // Add new EP
-                            Utilities.Log($"D.{nameof(ProcessExistingExtendedProperties)} - Creating AddExtendedPropertyOperation for {entityType.GetTableName()}.{sourceProperty.Name} with annotation PHI Rename");
-                            var addExtendedPropertyOperation = new AddExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), sourceProperty.Name), dictionaryExtendedProperty);
-                            addExtendedPropertyOperation.AddAnnotation(dictionaryExtendedProperty.Key, "Add");
-                            operations.Add(addExtendedPropertyOperation);
-                            return;
-                        }
+                        // Add new EP
+                        Logger.LogInformation($"Creating AddExtendedPropertyOperation for {entityType.GetTableName()}.{sourceProperty.Name} for EP key '{targetCustomAttribute.Name}'");
+                        var addEpOperation = new AddExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), sourceProperty.Name), new
+                        ExtendedProperty(targetCustomAttribute.Name, targetCustomAttribute.Value));
+                        operations.Add(addEpOperation);
                     }
-                    else
-                    { // If source has EP, but target doesn't have attribute, we'll remove the EP
-                        Utilities.Log($"D.{nameof(ProcessExistingExtendedProperties)} - Creating RemoveExtendedPropertyOperation for {entityType.GetTableName()}.{targetProperty.Name} with annotation PHI Remove");
-                        var removeExtendedPropertyOperation = new RemoveExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), targetProperty.Name), dictionaryExtendedProperty);
-                        removeExtendedPropertyOperation.AddAnnotation(dictionaryExtendedProperty.Key, "Remove");
-                        operations.Add(removeExtendedPropertyOperation);
-                        return;
-                    }
+                }
+                else { // If target has attribute, but source doesn't have matching EP, we'll add the EP
+                    Logger.LogInformation($"Creating AddExtendedPropertyOperation for {entityType.GetTableName()}.{targetProperty.Name} for EP key '{targetCustomAttribute.Name}'");
+                    var addEpOperation = new AddExtendedPropertyOperation(new SchemaTableColumn(entityType.GetSchema(), entityType.GetTableName(), targetProperty.Name), new ExtendedProperty(targetCustomAttribute.Name, targetCustomAttribute.Value));
+                    operations.Add(addEpOperation);
                 }
             }
         }

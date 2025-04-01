@@ -260,5 +260,8 @@ paket-files/
 __pycache__/
 *.pyc
 
+# Local testsettings.json file
+testsettings.local.json
+
 # Log files
 migration_log.txt

@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore.Migrations.Design;
 using Pazyn.EntityFrameworkCore.ExtendedProperties.Tests.Entities;
 
 namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
+    // InitialTestDbContext
+
+    // Do not modify this file in `TestDbContext.cs` file, only in `InitialTestDbContext.txt` template file.
     public class TestDbContext : DbContext {
         public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
 

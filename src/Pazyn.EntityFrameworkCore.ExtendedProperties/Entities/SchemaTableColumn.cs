@@ -1,5 +1,4 @@
-﻿namespace Pazyn.EntityFrameworkCore.ExtendedProperties
-{
+﻿namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Entities {
     public class SchemaTableColumn
     {
         public string Schema { get; }
