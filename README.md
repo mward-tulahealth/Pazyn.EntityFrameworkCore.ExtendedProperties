@@ -35,6 +35,36 @@ public class EFTable {
 }
 ```
 
+The custom code will create custom migration operations, which will be added to the migration cs file like this:
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder) {
+    migrationBuilder.AddSqlExtendedProperty(
+        table: "Member", 
+        column: "SsnLastFour", 
+        key: "PHI", 
+        value: "true"
+    );
+
+    migrationBuilder.RemoveSqlExtendedProperty(
+        table: "Member", 
+        column: "LastName", 
+        key: "CustomProperty"
+    );
+}
+```
+
+After the migration has been applied, you can see that the extended properties were added by running something like this query:
+
+```sql
+SELECT tbl.TABLE_NAME, col.COLUMN_NAME, hprop.name AS ExtendedPropertyName, hprop.value AS ExtendedPropertyValue
+FROM INFORMATION_SCHEMA.TABLES AS tbl
+INNER JOIN INFORMATION_SCHEMA.COLUMNS AS col ON col.TABLE_NAME = tbl.TABLE_NAME AND col.TABLE_SCHEMA = tbl.TABLE_SCHEMA
+INNER JOIN sys.columns AS sc ON sc.object_id = OBJECT_ID(tbl.TABLE_SCHEMA + '.' + tbl.TABLE_NAME) AND sc.name = col.COLUMN_NAME
+LEFT JOIN sys.extended_properties hprop ON hprop.major_id = sc.object_id AND hprop.minor_id = sc.column_id
+WHERE tbl.TABLE_SCHEMA = 'dbo' AND hprop.name IS NOT NULL AND hprop.name <> 'MS_Description' AND hprop.value IS NOT NULL
+```
+
 ## Setup
 Add a reference to `LiveTula.Services.Common.ExtendedProperties.csproj` in your csproj files for projects that contain:
 - `DesignTimeDbContextFactory`
