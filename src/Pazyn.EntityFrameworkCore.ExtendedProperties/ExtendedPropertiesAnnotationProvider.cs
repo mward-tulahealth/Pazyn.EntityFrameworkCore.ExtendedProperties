@@ -15,54 +15,54 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties
             MigrationsAnnotationProvider = migrationsAnnotationProvider;
         }
 
-        public IEnumerable<IAnnotation> For(IModel model) =>
-            MigrationsAnnotationProvider.For(model);
+        public IEnumerable<IAnnotation> ForRemove(IRelationalModel model)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> For(IIndex index) =>
-            MigrationsAnnotationProvider.For(index);
+        public IEnumerable<IAnnotation> ForRemove(ITable table)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> For(IProperty property) =>
-            MigrationsAnnotationProvider.For(property)
-                .Concat(property.GetAnnotations().Where(a => a.Name == nameof(ExtendedProperty)));
+        public IEnumerable<IAnnotation> ForRemove(IColumn column)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> For(IKey key) =>
-            MigrationsAnnotationProvider.For(key);
+        public IEnumerable<IAnnotation> ForRemove(IView view)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> For(IForeignKey foreignKey) =>
-            MigrationsAnnotationProvider.For(foreignKey);
+        public IEnumerable<IAnnotation> ForRemove(IViewColumn column)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> For(IEntityType entityType) =>
-            MigrationsAnnotationProvider.For(entityType)
-                .Concat(entityType.GetAnnotations().Where(a => a.Name == nameof(ExtendedProperty)));
+        public IEnumerable<IAnnotation> ForRemove(IUniqueConstraint constraint)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> For(ISequence sequence) =>
-            MigrationsAnnotationProvider.For(sequence);
+        public IEnumerable<IAnnotation> ForRemove(ITableIndex index)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> For(ICheckConstraint checkConstraint) =>
-            MigrationsAnnotationProvider.For(checkConstraint);
+        public IEnumerable<IAnnotation> ForRemove(IForeignKeyConstraint foreignKey)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> ForRemove(IModel model) =>
-            MigrationsAnnotationProvider.For(model);
+        public IEnumerable<IAnnotation> ForRemove(ISequence sequence)
+        {
+            throw new System.NotImplementedException();
+        }
 
-        public IEnumerable<IAnnotation> ForRemove(IIndex index) =>
-            MigrationsAnnotationProvider.For(index);
-
-        public IEnumerable<IAnnotation> ForRemove(IProperty property) =>
-            MigrationsAnnotationProvider.For(property);
-
-        public IEnumerable<IAnnotation> ForRemove(IKey key) =>
-            MigrationsAnnotationProvider.For(key);
-
-        public IEnumerable<IAnnotation> ForRemove(IForeignKey foreignKey) =>
-            MigrationsAnnotationProvider.For(foreignKey);
-
-        public IEnumerable<IAnnotation> ForRemove(IEntityType entityType) =>
-            MigrationsAnnotationProvider.For(entityType);
-
-        public IEnumerable<IAnnotation> ForRemove(ISequence sequence) =>
-            MigrationsAnnotationProvider.For(sequence);
-
-        public IEnumerable<IAnnotation> ForRemove(ICheckConstraint checkConstraint) =>
-            MigrationsAnnotationProvider.For(checkConstraint);
+        public IEnumerable<IAnnotation> ForRemove(ICheckConstraint checkConstraint)
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

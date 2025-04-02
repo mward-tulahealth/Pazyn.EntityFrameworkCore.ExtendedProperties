@@ -32,13 +32,16 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties
             {
             }
 
-            public override Boolean IsDatabaseProvider => false;
-            public override Int64 GetServiceProviderHashCode() => 0;
+            public override bool IsDatabaseProvider => false;
 
-            public override void PopulateDebugInfo(IDictionary<String, String> debugInfo) =>
+            public override int GetServiceProviderHashCode() => 0;
+
+            public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) =>
                 debugInfo[$"Pazyn: {nameof(ExtendedPropertiesExtension)}"] = "1";
 
-            public override String LogFragment => $"using {nameof(ExtendedPropertiesExtension)}";
+            public override string LogFragment => $"using {nameof(ExtendedPropertiesExtension)}";
+
+            public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) => true;
         }
     }
 }
