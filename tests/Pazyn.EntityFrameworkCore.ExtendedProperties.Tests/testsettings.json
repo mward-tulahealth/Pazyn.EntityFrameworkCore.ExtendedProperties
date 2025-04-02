@@ -1,5 +1,5 @@
 {
     "Database": {
-        "ConnectionString": "Server=localhost;Database=ExtendedPropertiesTest;User Id=sa;Password=password_to_local_db;Trusted_Connection=True;"
+        "ConnectionString": "Server=(localdb)\\mssqllocaldb;Database=TestDatabase;Trusted_Connection=True;"
     }
 }

@@ -59,7 +59,6 @@ namespace Pazyn.EntityFrameworkCore.ExtendedProperties.Tests {
             IConfiguration configuration = new ConfigurationBuilder()
                 .SetBasePath(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../")))
                 .AddJsonFile("testsettings.json")
-                .AddJsonFile("testsettings.local.json", optional: true)
                 .Build();
 
             string connectionString = configuration
